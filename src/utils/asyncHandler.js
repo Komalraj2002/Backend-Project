@@ -13,7 +13,7 @@ export {asyncHandler}
 //     await func(res,req,next)
 // } catch (error) {
 //     res.status(err.code || 500).json({
-//         sucess:false,
+//         sucess:false,       
 //         message:err.message
 //     })
 // }
