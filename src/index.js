@@ -1,6 +1,7 @@
 // require('dotenv').config({path: './env'})
 import dotenv from "dotenv"
 import connectDB from "./db/index.js"
+import {app} from "./app.js";
 
 dotenv.config({
     path: './env'
@@ -28,9 +29,8 @@ import mongoose from "mongoose";
 import {DB_NAME} from "./constants";
 import express from "express" //express inisialize the app 
 const app = express()
-
+//Immediately Invoked Function Expressions (IIFEs) 
 ( async()=>{
-
     try {
        await mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`)
 
@@ -40,7 +40,7 @@ const app = express()
        })
 
       app.listen("process.env.PORT", ()=>{
-        console.log(`app ins listning on port ${process.env.PORT}`)
+        console.log(`app is listning on port ${process.env.PORT}`)
       })
 
     } catch (error) {

@@ -1,24 +1,24 @@
 import {v2 as cloudinary} from "cloudinary";
-import fs from "fs";
+import fs from "fs"; 
 
-cloudinary.config({ 
+cloudinary.config({ //MAKING CONNECTION WITH CLOUDINARY
     cloud_name: 'process.env.CLOUD_NAME', 
     api_key: 'process.env.CLOUD_API_KEY', 
     api_secret: 'process.env.CLOUD_API_SECRET' 
 });
 
-const uploadOnCloudinary = async(localFilePath)=>{
+const uploadOnCloudinary = async(localFilePath)=>{//we get a local file path by which the data is saved in the localserver
 try {
     if(!localFilePath) return null
-    //upload file on cloudinary
+    //if file exist upload file on cloudinary
    const response= await cloudinary.uploader.upload(localFilePath,{
-        resource_type: "auto"
+    resource_type: "auto" // means Cloudinary will automatically detect the file type (image, video, etc.).
     })
     //file has been uploaded sucessfully
-    console.log("file is uploaded on cloudinary",response.url)
+    console.log("file is uploaded on cloudinary",response.url) //Return the cloud URL so it can store in database and serve the file from the cloud later
 } catch (error) {
-    fs.unlinkSync(localFilePath) //remove the locally save temprory file as the upload operation fail
+    //if there is an error in saving the file to cloud
+    fs.unlinkSync(localFilePath)//remove file from local server also as the upload operation fail whole process start again
     return null;
-}
-}
+}}
 export {uploadOnCloudinary}

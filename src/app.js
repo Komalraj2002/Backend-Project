@@ -11,7 +11,13 @@ app.use(
 );
 app.use(express.json({ limit: "16kb" })); //Parses JSON in request bodies from froentend AND the limit accepted depend on server power(bodyparser )
 app.use(express.urlencoded({ extended: true, limit: "16kb" })); // parse the url in request body
-app.use(express.static("public"));  //public is a foler where we can store
+app.use(express.static("public"));  //public is a foler where we can store , serve static file from public folder
 app.use(cookieParser()) //	Parses cookies and puts them on req.cookies
+
+//routes import
+import userRouter from "./routes/user.routes.js"
+
+//routes declaration
+app.use("/api/v1/users" , userRouter)
 
 export { app };

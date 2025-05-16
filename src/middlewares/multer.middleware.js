@@ -1,12 +1,11 @@
 import multer from "multer";
 
 const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, "./public/temp")
+    destination: function (req, file, cb) { // REQ IS FROM FRONTEND , FILE IS THE IMAGE,VIDEO ETC CB IS CALLBACK
+      cb(null, "./public/temp") //null = no error save the file in folder(destination) ./public/temp
     },
     filename: function (req, file, cb) {
-    
-      cb(null, file.originalname)
+      cb(null, file.originalname) //null = no error safe the file as (filename) file.originalname eg photo.png
     }
   })
   
