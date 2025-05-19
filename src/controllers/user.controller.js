@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { apiError } from "../utils/apiError.js";
 import {uploadOnCloudinary} from "../utils/cloudinary.js"
 import { apiResponse } from "../utils/apiResponse.js";
+import {User} from "../models/user.model.js"
 //register user
 const registerUser = asyncHandler(async (req, res) => {
   //get user details from froentend
@@ -22,7 +23,7 @@ const registerUser = asyncHandler(async (req, res) => {
   ) {
     throw new apiError(400, "all fields are required");
   }
-  const existedUser = user.findOne({
+  const existedUser = await User.findOne({
     $or: [{ username }, { email }],
   });
   if (existedUser) {
@@ -32,7 +33,12 @@ const registerUser = asyncHandler(async (req, res) => {
     );
   }
   const avatarLocalPath = req.files?.avatar[0]?.path
- const coverimageLocalPath = req.files?.coverimage[0]?.path
+ //const coverimageLocalPath = req.files?.coverimage[0]?.path
+
+let coverimageLocalPath ;
+if (req.files && Array.isArray(req.files.coverimage) && req.files.coverimage.length >0){
+   coverimageLocalPath = req.files.coverimage[0].path
+}
 
  if (!avatarLocalPath) {
     throw new apiError(
@@ -49,7 +55,7 @@ const coverimage = await uploadOnCloudinary(coverimageLocalPath)
       "Avatar file is required"
     );
   }
-const user = await user.create({
+const user = await User.create({
     fullname,
      avatar: avatar.url,
      coverimage:coverimage?.url || "",
@@ -59,7 +65,7 @@ const user = await user.create({
 
 })
 
-const createdUser = await user.findById(user._id).select(
+const createdUser = await User.findById(user._id).select(  //This tells Mongoose to exclude (-) the password and refreshToken fields from the result.The result will include all other fields except these two sensitive fields.
     "-password -refreshToken"  
 )
 
@@ -68,14 +74,9 @@ if (!createdUser){
 }
 
 
-return res.this.status(201).json(
+return res.status(201).json(
     new apiResponse (200,createdUser,"user registered sucessfully ")
 )
-
-
-
-
-
 
 });
 
