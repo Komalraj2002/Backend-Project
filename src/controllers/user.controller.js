@@ -1,9 +1,28 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { apiError } from "../utils/apiError.js";
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { apiResponse } from "../utils/apiResponse.js";
-import {User} from "../models/user.model.js"
-//register user
+import { User } from "../models/user.model.js";
+import jwt from "jsonwebtoken" ;
+
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new apiError(
+      500,
+      "Something went wrong while generating referesh and access token"
+    );
+  }
+};
+
 const registerUser = asyncHandler(async (req, res) => {
   //get user details from froentend
   //vaidation = not empty
@@ -24,7 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
     throw new apiError(400, "all fields are required");
   }
   const existedUser = await User.findOne({
-    $or: [{ username }, { email }],
+    $or: [{ username }, { email }], //or is a mongodb operator that finds the user in the db based on username or email any one of these two fields
   });
   if (existedUser) {
     throw new apiError(
@@ -32,52 +51,173 @@ const registerUser = asyncHandler(async (req, res) => {
       "username with this username and email already exists"
     );
   }
-  const avatarLocalPath = req.files?.avatar[0]?.path
- //const coverimageLocalPath = req.files?.coverimage[0]?.path
+  const avatarLocalPath = req.files?.avatar[0]?.path;
+  //const coverimageLocalPath = req.files?.coverimage[0]?.path
 
-let coverimageLocalPath ;
-if (req.files && Array.isArray(req.files.coverimage) && req.files.coverimage.length >0){
-   coverimageLocalPath = req.files.coverimage[0].path
-}
-
- if (!avatarLocalPath) {
-    throw new apiError(
-      400,
-      "Avatar file is required"
-    );
+  let coverimageLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.coverimage) &&
+    req.files.coverimage.length > 0
+  ) {
+    coverimageLocalPath = req.files.coverimage[0].path;
   }
 
-const avatar = await uploadOnCloudinary(avatarLocalPath)
-const coverimage = await uploadOnCloudinary(coverimageLocalPath)
- if (!avatar) {
-    throw new apiError(
-      400,
-      "Avatar file is required"
-    );
+  if (!avatarLocalPath) {
+    throw new apiError(400, "Avatar file is required");
   }
-const user = await User.create({
+
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  const coverimage = await uploadOnCloudinary(coverimageLocalPath);
+  if (!avatar) {
+    throw new apiError(400, "Avatar file is required");
+  }
+  const user = await User.create({
     fullname,
-     avatar: avatar.url,
-     coverimage:coverimage?.url || "",
-     email,
-     password,
-     username: username.toLowerCase(),
+    avatar: avatar.url,
+    coverimage: coverimage?.url || "",
+    email,
+    password,
+    username: username.toLowerCase(),
+  });
 
-})
+  const createdUser = await User.findById(user._id).select(
+    //This tells Mongoose to exclude (-) the password and refreshToken fields from the result.The result will include all other fields except these two sensitive fields.
+    "-password -refreshToken"
+  );
 
-const createdUser = await User.findById(user._id).select(  //This tells Mongoose to exclude (-) the password and refreshToken fields from the result.The result will include all other fields except these two sensitive fields.
-    "-password -refreshToken"  
-)
+  if (!createdUser) {
+    throw new apiError(500, "something went wrong while registering the user");
+  }
 
-if (!createdUser){
-    throw new apiError(500 , "something went wrong while registering the user")
-}
-
-
-return res.status(201).json(
-    new apiResponse (200,createdUser,"user registered sucessfully ")
-)
-
+  return res
+    .status(201)
+    .json(new apiResponse(200, createdUser, "user registered sucessfully "));
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req, res) => {
+  //req body ->data
+  //username or email
+  //find the user
+  //pasword check
+  //if paassword correct acssestoken or refresh token
+  //send cookies
+
+  const { username, email, password } = req.body;
+  if (!(username || email)) {
+    throw new apiError(400, "username and email is required");
+  }
+
+  const user = await User.findOne({
+    //user
+    $or: [{ username }, { email }],
+  });
+  if (!user) {
+    throw new apiError(404, "user does not exist");
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(password); //here we user user not User becoz User is for mongodb methods like finone find by id user is for the method grenrated by us
+  if (!isPasswordValid) {
+    throw new apiError(404, "invalid user credentials");
+  }
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  );
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-refreshToken  -password"
+  );
+
+  //for cookies
+  const options = {
+    //using this we made the cookies not editable by frontend developers but they can view (only view not edit)
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new apiResponse(
+        200,
+        {
+          user: loggedInUser,
+          refreshToken,
+          accessToken,
+        },
+        "user logged in sucessfully"
+      )
+    );
+});
+
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id, //this come from the middleware verifyJWT
+    {
+      $set: {
+        refreshToken: undefined,
+      },
+    },
+    {
+      new: true, //the new in mongoodb allow it to send the new data in response(which contain undefined refreshtoken) not old
+    }
+  );
+  const options = {
+    //using this we made the cookies not editable by frontend developers but they can view (only view not edit)
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new apiResponse(200, {}, "user loggedOut in sucessfully"));
+});
+
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+  if (!incomingRefreshToken) {
+    throw new apiError(401, "unauthorizd request");
+  }
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    ); // incomming token which is refreshtoken and is now decoded menas we have all the information now of this decoded token
+
+    const user = await User.findById(decodedToken?._id);
+    if (!user) {
+      throw new apiError(401, "invalid refresh token");
+    }
+
+    if (incomingRefreshToken !== user?.refreshToken) {
+      throw new apiError(401, "refresh token is expired or used");
+    }
+    const options = {
+      //using this we made the cookies not editable by frontend developers but they can view (only view not edit)
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshTokens(user?._id);
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new apiResponse(
+          200,
+          { accessToken, refreshAccessToken: newRefreshToken },
+          "accesstoken refresh sucessfully"
+        )
+      );
+  } catch (error) {
+    throw new apiError(401, error?.message || "invalid refresh token ");
+  }
+});
+
+export { registerUser, loginUser, logoutUser,refreshAccessToken };
