@@ -38,7 +38,7 @@ const registerUser = asyncHandler(async (req, res) => {
   console.log(username);
 
   if (
-    [username, email, fullname, password].some((field) => field?.trim() === "") //checks all the fields if they are present trims them and check if they are empty or not
+    [username, email, fullname, password].some((field) => field?.trim() === "") // checks all the fields if they are present trims them and check if they are empty or not
   ) {
     throw new apiError(400, "all fields are required");
   }
@@ -233,7 +233,9 @@ const changeCurrentPasword = async (req, res) => {
   user.password = newPassword; //this says user contain password that we are changing and it trigger the save() in user modle
   user.save({ validateBeforeSave: false });
 
-  return res.status(200).json(200, {}, "password changed sucessfully ");
+  return res
+    .status(200)
+    .json(new apiResponse(200, {}, "password changed sucessfully "));
 };
 
 const getCurrentUser = asyncHandler(async (req, res) => {
@@ -316,6 +318,79 @@ const updateUserCoverimage = asyncHandler(async (req, res) => {
     .status(200)
     .json(new apiResponse(200, user, "coverimage updated sucessfully"));
 });
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  const { username } = req.params; //req.params is an object that contains route parameters — values extracted from the URL when a route with named parameters is matched.
+  if (!username?.trim()) {
+    throw new apiError(400, "username is missing");
+  }
+
+  const channel = await User.aggregate([
+    {
+      //satage1
+      // This filters the documents to only include the one with the matching username
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      //this is used for knowing how many subscriber does the user have
+      $lookup: {
+        from: "subscriptions", // The name of the collection to join with
+        localField: "_id", // Field from the User collection
+        foreignField: "channel", // Field from the subscriptionS collection
+        as: "subscribers ", // Output array field to store the matched subscriptions
+      },
+    },
+    {
+      //this is used for knowing how many users have subscribed to your channel
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo ",
+      },
+    },
+    {
+      $addFields: {
+        subscribersCount: {
+          $size: "$subscribers",  // Use $size to count elements in the subscribers array
+        },
+        $channelsSubscribedToCount: {
+          $size: "$subscribedTo", // Count of channels the user is subscribed to
+        },
+        issubscribed: {
+          $cond: {
+           if:{ $in: [req.user?._id, "$subscribers.subscriber"]},  // Check if current user is in the list of subscribers
+           then:true, //if yes
+           else:false // if no
+          },
+        },
+      },
+    },
+    {
+      //stage 5 Project only selected fields to the final result
+      $project:{
+        fullName: 1,
+        username:1,
+        email:1,
+        avatar:1,
+        coverimage:1,
+        subscribersCount:1,
+        channelsSubscribedToCount:1,
+        issubscribed:1
+
+      }
+    }
+  ]);
+  if(!channel?.length){
+    throw new apiError(404 , "channel does not exist")
+  }
+  return res
+  .status(200)
+  .json(new apiResponse(200 , channel[0] , "user channel fetched sucessfully"))
+});
+
 export {
   registerUser,
   loginUser,
@@ -326,4 +401,11 @@ export {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverimage,
+  getUserChannelProfile,
 };
+
+
+
+
+
+
