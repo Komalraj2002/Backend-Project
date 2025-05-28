@@ -31,7 +31,7 @@ const userSchema = new Schema(
     coverimage: {
       type: String, //cloudnary data
     },
-    watchhistory: [
+    watchHistory: [
       {
         type: Schema.Types.ObjectId,
         ref: "Video",

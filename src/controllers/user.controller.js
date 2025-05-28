@@ -354,41 +354,90 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $addFields: {
         subscribersCount: {
-          $size: "$subscribers",  // Use $size to count elements in the subscribers array
+          $size: "$subscribers", // Use $size to count elements in the subscribers array
         },
         $channelsSubscribedToCount: {
           $size: "$subscribedTo", // Count of channels the user is subscribed to
         },
         issubscribed: {
           $cond: {
-           if:{ $in: [req.user?._id, "$subscribers.subscriber"]},  // Check if current user is in the list of subscribers
-           then:true, //if yes
-           else:false // if no
+            if: { $in: [req.user?._id, "$subscribers.subscriber"] }, // Check if current user is in the list of subscribers
+            then: true, //if yes
+            else: false, // if no
           },
         },
       },
     },
     {
       //stage 5 Project only selected fields to the final result
-      $project:{
+      $project: {
         fullName: 1,
-        username:1,
-        email:1,
-        avatar:1,
-        coverimage:1,
-        subscribersCount:1,
-        channelsSubscribedToCount:1,
-        issubscribed:1
-
-      }
-    }
+        username: 1,
+        email: 1,
+        avatar: 1,
+        coverimage: 1,
+        subscribersCount: 1,
+        channelsSubscribedToCount: 1,
+        issubscribed: 1,
+      },
+    },
   ]);
-  if(!channel?.length){
-    throw new apiError(404 , "channel does not exist")
+  if (!channel?.length) {
+    throw new apiError(404, "channel does not exist");
   }
   return res
-  .status(200)
-  .json(new apiResponse(200 , channel[0] , "user channel fetched sucessfully"))
+    .status(200)
+    .json(new apiResponse(200, channel[0], "user channel fetched sucessfully"));
+});
+
+const getWatchHistory = asyncHandler(async () => {
+  const user = await User.aggregate([
+    {
+      $match: {
+              // Step 1: Match the current user by ID
+        _id: new mongoose.Types.ObjectId(req.user._id), // this convert the string in the req.user._id to objectid
+      },
+    },
+    {
+        // Step 2: Lookup video documents to get the data for user's watchHistory array
+      $lookup: {
+        from: "videos",// Target collection
+        localField: "watchHistory", // Field in User collection
+        foreignField: "_id", // Field in Video collection to match
+        as: "watchHistory",  // Output array field to store matched video documents
+        pipeline: [
+          // now we are in videos and looking for the owner field in videos
+          {
+            lookup: {
+              from: "users",// Target collection
+              localField: "owner", // Field in Video collection to match
+              foreignField: "_id", // Field in usercollection to match
+              as: " owner ",
+              pipeline: [
+                {
+                   // Step 4: Project only selected fields from the owner
+                  project: {
+                    fullName: 1,
+                    username: 1,
+                    avatar: 1,
+                  },
+                },
+                {
+                   // Step 5: project return an array so we convert owner array to a single object (first element)
+                  $addFields: {
+                    owner: {
+                      $first: "$owner",
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ]);
+  return res.status(200).json(new apiResponse(200,user[0].WatchHistory, "watch history fetched sycessfully"))
 });
 
 export {
@@ -402,10 +451,5 @@ export {
   updateUserAvatar,
   updateUserCoverimage,
   getUserChannelProfile,
+  getWatchHistory
 };
-
-
-
-
-
-
