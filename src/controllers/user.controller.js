@@ -415,7 +415,7 @@ const getWatchHistory = asyncHandler(async () => {
               as: " owner ",
               pipeline: [
                 {
-                   // Step 4: Project only selected fields from the owner
+                   // Step 4: Project only selected fields from the users
                   project: {
                     fullName: 1,
                     username: 1,
@@ -426,7 +426,7 @@ const getWatchHistory = asyncHandler(async () => {
                    // Step 5: project return an array so we convert owner array to a single object (first element)
                   $addFields: {
                     owner: {
-                      $first: "$owner",
+                      $first: "$owner",  //first instead of keeping owner as an array, it keeps just the first element.
                     },
                   },
                 },
