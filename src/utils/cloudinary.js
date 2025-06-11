@@ -24,7 +24,24 @@ try {
     console.log("file is not uploaded on cloudinary")
     return null;
 }}
-export {uploadOnCloudinary}
+
+ const deleteFromCloudinary = async (public_id)=>{
+    try {
+        if(!public_id) return null
+       
+        
+        const response = await cloudinary.uploader
+        .destroy(public_id).then((res)=>{
+            // log("assert delete", res)
+        });
+    } catch (error) {
+        console.error("Cloudinary error on deleting assert:", error);
+        return null
+    }
+}
+
+
+export {uploadOnCloudinary , deleteFromCloudinary}
 
 
   
