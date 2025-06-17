@@ -13,15 +13,15 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     throw new apiError(400, "channelId is required");
   }
 
-  const isAlreadyExixt = await Subscription.findOne({
+  const isAlreadyExixt = await Subscription.findOne({  //find in the db weather this combination exist 
     channel: channelId,
     subscriber: req.user._id,
   });
 
   let isSubscribed;
 
-  if (isAlreadyExixt != null) {
-    // if user has subscribed alreadedy it return isSubscribed false
+  if (isAlreadyExixt != null) {    //if yes , if user has subscribed alreadedy it return isSubscribed false
+   
     await Subscription.findByIdAndDelete({
       channel: channelId,
       subscriber: req.user._id,
