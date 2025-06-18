@@ -34,7 +34,7 @@ const addComment = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, addComment, "comment added sucessfully"));
 });
 
-export const getVideoComments = asyncHandler(async (req, res) => {
+ const getVideoComments = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   let { page = 1, limit = 10 } = req.query;
 
@@ -105,7 +105,7 @@ export const getVideoComments = asyncHandler(async (req, res) => {
     );
 });
 
-export const updateComment = asyncHandler(async (req, res) => {
+ const updateComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
   const { content } = req.body;
   if (!isValidObjectId(commentId)) {
@@ -133,7 +133,7 @@ export const updateComment = asyncHandler(async (req, res) => {
     .json(new apiResponse(200, updateComment, "comment updated sucessfully"));
 });
 
-export const deleteComment = asyncHandler(async (req, res) => {
+ const deleteComment = asyncHandler(async (req, res) => {
   const { commentId } = req.params;
 
   if (!isValidObjectId(commentId)) {
